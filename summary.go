@@ -18,6 +18,13 @@ type ResultSet struct {
 	RowSet  [][]interface{} `json:"rowSet"` // Use [][]interface{} for mixed data types in rows
 }
 
+type boxscore struct {
+	hometeam  string
+	awayteam  string
+	homescore uint8
+	awayscore uint8
+}
+
 var headers = map[string]string{
 	"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 	"x-nba-stats-origin": "stats",
@@ -33,7 +40,55 @@ var headers = map[string]string{
 func main() {
 	yesterday := time.Now().Add(time.Duration(-24) * time.Hour).Format("01/02/2006")
 	games_response := get_games(yesterday)
-	fmt.Println(games_response.RowSet[0])
+	//fmt.Println(games_response.RowSet[0])
+	//scores := []boxscore
+	game_id := games_response.RowSet[0][4]
+	client := http.Client{}
+	game_url := fmt.Sprintf("https://stats.nba.com/stats/boxscoresummaryv2?GameID=%s", game_id)
+	//fmt.Println(game_id)
+	req, _ := http.NewRequest("GET", game_url, nil)
+
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+	resp, err := client.Do(req)
+
+	if err != nil {
+
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var parsedResponse Response
+	_ = json.Unmarshal(body, &parsedResponse)
+	//fmt.Println(parsedResponse.ResultSets)
+	for _, set := range parsedResponse.ResultSets {
+		if set.Name == "LineScore" {
+			home_team_stats := set.RowSet[0]
+			away_team_stats := set.RowSet[1]
+			home_team, home_score := home_team_stats[4], int(home_team_stats[len(home_team_stats)-1].(float64))
+			away_team, away_score := away_team_stats[4], int(away_team_stats[len(away_team_stats)-1].(float64))
+			fmt.Printf("Score: %s vs %s: %d - %d\n", home_team, away_team, home_score, away_score)
+		}
+	}
+	// for _, element := range games_response.RowSet {
+	// 	game_id := element[4]
+	// 	game_url := fmt.Sprintf("https://stats.nba.com/stats/boxscoresummaryv2?GameID=%s", game_id)
+	// 	//fmt.Println(game_id)
+	// 	req, _ := http.NewRequest("GET", game_url, nil)
+
+	// 	for k, v := range headers {
+	// 		req.Header.Add(k, v)
+	// 	}
+	// 	resp, err := client.Do(req)
+
+	// 	if err != nil {
+
+	// 	}
+	// 	defer resp.Body.Close()
+	// 	body, _ := io.ReadAll(resp.Body)
+	// 	var parsedResponse Response
+	// 	_ = json.Unmarshal(body, &parsedResponse)
+	//}
 }
 
 func get_games(date string) ResultSet {
