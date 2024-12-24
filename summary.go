@@ -4,8 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Response struct {
@@ -15,7 +22,7 @@ type Response struct {
 type ResultSet struct {
 	Name    string          `json:"name"`
 	Headers []string        `json:"headers"`
-	RowSet  [][]interface{} `json:"rowSet"` // Use [][]interface{} for mixed data types in rows
+	RowSet  [][]interface{} `json:"rowSet"`
 }
 
 type boxscore struct {
@@ -40,12 +47,42 @@ var headers = map[string]string{
 func main() {
 	yesterday := time.Now().Add(time.Duration(-24) * time.Hour).Format("01/02/2006")
 	games_response := get_games(yesterday)
-	//fmt.Println(games_response.RowSet[0])
-	//scores := []boxscore
-	game_id := games_response.RowSet[0][4]
+	var scores []boxscore
+	var game_ids []string
+	for _, game := range games_response.RowSet {
+		game_id := game[4].(string)
+		if !slices.Contains(game_ids, game_id) {
+			game_ids = append(game_ids, game_id)
+		}
+	}
+	for _, game_id := range game_ids {
+		box_score := get_game_score(game_id)
+		scores = append(scores, box_score)
+	}
+
+	var score_strings []string
+	for _, score := range scores {
+		score_strings = append(score_strings, fmt.Sprintf("%s vs %s: %d - %d", score.hometeam, score.awayteam, score.homescore, score.awayscore))
+	}
+
+	all_scores := strings.Join(score_strings, "\n")
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
+	if err != nil {
+		panic(err)
+	}
+
+	chat_id, _ := strconv.Atoi(os.Getenv("CHAT_ID"))
+	msg := tgbotapi.NewMessage(int64(chat_id), all_scores)
+
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+	}
+
+}
+
+func get_game_score(game_id string) boxscore {
 	client := http.Client{}
 	game_url := fmt.Sprintf("https://stats.nba.com/stats/boxscoresummaryv2?GameID=%s", game_id)
-	//fmt.Println(game_id)
 	req, _ := http.NewRequest("GET", game_url, nil)
 
 	for k, v := range headers {
@@ -54,41 +91,24 @@ func main() {
 	resp, err := client.Do(req)
 
 	if err != nil {
-
+		panic(err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	var parsedResponse Response
 	_ = json.Unmarshal(body, &parsedResponse)
-	//fmt.Println(parsedResponse.ResultSets)
+
+	var home_team, away_team string
+	var home_score, away_score uint8
 	for _, set := range parsedResponse.ResultSets {
 		if set.Name == "LineScore" {
 			home_team_stats := set.RowSet[0]
 			away_team_stats := set.RowSet[1]
-			home_team, home_score := home_team_stats[4], int(home_team_stats[len(home_team_stats)-1].(float64))
-			away_team, away_score := away_team_stats[4], int(away_team_stats[len(away_team_stats)-1].(float64))
-			fmt.Printf("Score: %s vs %s: %d - %d\n", home_team, away_team, home_score, away_score)
+			home_team, home_score = home_team_stats[4].(string), uint8(home_team_stats[len(home_team_stats)-1].(float64))
+			away_team, away_score = away_team_stats[4].(string), uint8(away_team_stats[len(away_team_stats)-1].(float64))
 		}
 	}
-	// for _, element := range games_response.RowSet {
-	// 	game_id := element[4]
-	// 	game_url := fmt.Sprintf("https://stats.nba.com/stats/boxscoresummaryv2?GameID=%s", game_id)
-	// 	//fmt.Println(game_id)
-	// 	req, _ := http.NewRequest("GET", game_url, nil)
-
-	// 	for k, v := range headers {
-	// 		req.Header.Add(k, v)
-	// 	}
-	// 	resp, err := client.Do(req)
-
-	// 	if err != nil {
-
-	// 	}
-	// 	defer resp.Body.Close()
-	// 	body, _ := io.ReadAll(resp.Body)
-	// 	var parsedResponse Response
-	// 	_ = json.Unmarshal(body, &parsedResponse)
-	//}
+	return boxscore{hometeam: home_team, awayteam: away_team, homescore: home_score, awayscore: away_score}
 }
 
 func get_games(date string) ResultSet {
@@ -103,7 +123,7 @@ func get_games(date string) ResultSet {
 	resp, err := client.Do(req)
 
 	if err != nil {
-
+		panic(err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
