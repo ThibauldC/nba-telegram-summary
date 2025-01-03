@@ -71,8 +71,8 @@ func main() {
 		panic(err)
 	}
 
-	chat_id, _ := strconv.Atoi(os.Getenv("CHAT_ID"))
-	msg := tgbotapi.NewMessage(int64(chat_id), all_scores)
+	chat_id, _ := strconv.ParseInt(os.Getenv("CHAT_ID"), 10, 64)
+	msg := tgbotapi.NewMessage(chat_id, all_scores)
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
