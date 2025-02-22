@@ -2,11 +2,9 @@
 name: Release nba-telegram-summary
 
 on:
-  pull_request:
   push:
-    # run only against tags
-    # tags:
-    #   - "*"
+    tags:
+      - "*"
 
 permissions:
   contents: write
@@ -26,27 +24,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23.4'
-      - run: rm -rf dist/*
+          cache: true
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          # 'latest', 'nightly', or a semver
           version: "~> v2"
-          args: release --clean --snapshot
+          args: release --rm-dist --clean
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
-      - name: Create new Release
-        id: create_release
-        uses: shogo82148/actions-create-release@v1
-        with:
-          tag_name: 0.0.0
-          release_name: test_release
-          body: this is default
-      
-      - name: Upload binaries
-        uses: shogo82148/actions-upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/*
-          github_token: ${{ secrets.REPO_TOKEN }}
