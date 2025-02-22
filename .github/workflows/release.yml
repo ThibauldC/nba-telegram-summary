@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23.4'
+      - run: rm -rf dist/*
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -48,3 +49,4 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: dist/*
+          github_token: ${{ secrets.REPO_TOKEN }}
