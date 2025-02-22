@@ -1,0 +1,27 @@
+name: Create tag upon merge
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - v*
+permissions:
+    id-token: write
+    contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      actions: "read"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+      - name: Bump version and push tag
+        id: tag_version
+        uses: anothrNick/github-tag-action@1.64.0
+        env:
+          GITHUB_TOKEN: ${{ SECRETS.REPO_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
