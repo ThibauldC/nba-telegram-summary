@@ -35,3 +35,16 @@ jobs:
           args: release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+      - name: Create new Release
+        id: create_release
+        uses: shogo82148/actions-create-release@v1
+        with:
+          tag_name: 0.0.0
+          release_name: test_release
+          body: this is default
+      
+      - name: Upload binaries
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/*
